@@ -1,9 +1,162 @@
 import React, { useState } from 'react';
-import { Search, ArrowUpDown, Edit2, Trash2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+    Search, ArrowUpDown, Edit2, Trash2, ChevronLeft, ChevronRight,
+    Loader2, ChevronDown, ChevronUp, Download, Phone, Mail, MapPin,
+    FileText, AlertCircle, CheckCircle, Clock
+} from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDate } from '../../utils/dateHelpers';
 import { GradeBadge } from '../UI/GradeBadge';
+
+// Decree status badge
+const DecreeStatusBadge = ({ nroDecreto, firmaDecreto }) => {
+    if (firmaDecreto) {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                <CheckCircle size={10} /> Firmado
+            </span>
+        );
+    }
+    if (nroDecreto) {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <Clock size={10} /> En Trámite
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800">
+            <AlertCircle size={10} /> Pendiente
+        </span>
+    );
+};
+
+// Days remaining badge with urgency styling
+const DaysRemainingBadge = ({ days }) => {
+    if (days === null || days === undefined) {
+        return <span className="text-gray-400 text-sm">N/A</span>;
+    }
+
+    if (days < 0) {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 line-through">
+                Vencida
+            </span>
+        );
+    }
+
+    if (days <= 30) {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                {days} días
+            </span>
+        );
+    }
+
+    if (days <= 60) {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
+                {days} días
+            </span>
+        );
+    }
+
+    if (days <= 120) {
+        return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                {days} días
+            </span>
+        );
+    }
+
+    return (
+        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+            {days} días
+        </span>
+    );
+};
+
+// Expandable detail row
+const DetailRow = ({ item, colSpan }) => (
+    <tr className="border-b border-border">
+        <td colSpan={colSpan} className="p-0">
+            <div className="animate-expand bg-gray-50 dark:bg-gray-800/50 px-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    {/* Contact info */}
+                    <div className="space-y-2">
+                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide mb-2">
+                            Contacto
+                        </h4>
+                        {item.telefonoOficial && (
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                <Phone size={14} className="text-blue-500" />
+                                <span>{item.telefonoOficial}</span>
+                            </div>
+                        )}
+                        {item.correoElectronico && (
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                <Mail size={14} className="text-blue-500" />
+                                <span>{item.correoElectronico}</span>
+                            </div>
+                        )}
+                        {item.direccionOficial && (
+                            <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
+                                <MapPin size={14} className="text-blue-500 mt-0.5" />
+                                <span>{item.direccionOficial}</span>
+                            </div>
+                        )}
+                        {!item.telefonoOficial && !item.correoElectronico && !item.direccionOficial && (
+                            <p className="text-gray-400 text-xs italic">Sin información de contacto</p>
+                        )}
+                    </div>
+
+                    {/* Decree info */}
+                    <div className="space-y-2">
+                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide mb-2">
+                            Decreto / Resolución
+                        </h4>
+                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                            <FileText size={14} className="text-indigo-500" />
+                            <span>{item.nroDecretoResol || 'Sin número'}</span>
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">
+                            <span className="text-xs text-gray-400">Firma: </span>
+                            {item.firmaDecretoResol ? formatDate(item.firmaDecretoResol) : 'Pendiente'}
+                        </div>
+                        {item.diasEntreFirmaPartida != null && (
+                            <div className="text-xs text-gray-400">
+                                {item.diasEntreFirmaPartida} días entre firma y partida
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Commission info */}
+                    <div className="space-y-2">
+                        <h4 className="font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide mb-2">
+                            Comisión
+                        </h4>
+                        <div className="text-gray-600 dark:text-gray-400">
+                            <span className="text-xs text-gray-400">Cargo: </span>
+                            {item.cargo || 'Sin especificar'}
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">
+                            <span className="text-xs text-gray-400">Salida: </span>
+                            {item.fechaSalida ? formatDate(item.fechaSalida) : 'Sin fecha'}
+                        </div>
+                        {item.relevoPasajeCargos && (
+                            <div className="text-gray-600 dark:text-gray-400">
+                                <span className="text-xs text-gray-400">Relevo: </span>
+                                {item.relevoPasajeCargos}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </td>
+    </tr>
+);
 
 export const MasterTable = ({ onEdit }) => {
     const {
@@ -14,6 +167,7 @@ export const MasterTable = ({ onEdit }) => {
     const { hasRole } = useAuth();
 
     const [deleteLoading, setDeleteLoading] = useState(null);
+    const [expandedRow, setExpandedRow] = useState(null);
 
     const handleSort = (field) => {
         const newDir = tableParams.sortBy === field && tableParams.sortDir === 'asc' ? 'desc' : 'asc';
@@ -32,22 +186,50 @@ export const MasterTable = ({ onEdit }) => {
         }
     };
 
-    const getDaysRemainingClass = (days) => {
-        if (days === null || days === undefined) return '';
-        if (days < 0) return 'text-gray-500';
-        if (days <= 60) return 'text-red-600 font-bold';
-        if (days <= 120) return 'text-orange-500';
-        return 'text-green-600';
+    const handleExportVisible = () => {
+        try {
+            // Dynamic import to avoid loading xlsx if not needed
+            import('xlsx').then(XLSX => {
+                const exportData = agregaduras.map(item => ({
+                    'País': item.pais,
+                    'Apellido y Nombre': item.apellidoNombre,
+                    'Fuerza': item.fuerzaCodigo,
+                    'Grado': item.grado,
+                    'Cargo': item.cargo || '',
+                    'Fin Comisión': item.finComision ? formatDate(item.finComision) : '',
+                    'Días Restantes': item.diasRestantes ?? '',
+                    'Decreto': item.nroDecretoResol || '',
+                    'Firma Decreto': item.firmaDecretoResol ? formatDate(item.firmaDecretoResol) : '',
+                    'Teléfono': item.telefonoOficial || '',
+                    'Email': item.correoElectronico || '',
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Agregadurías');
+
+                // Column widths
+                ws['!cols'] = [
+                    { wch: 18 }, { wch: 28 }, { wch: 8 }, { wch: 22 }, { wch: 20 },
+                    { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 20 }, { wch: 28 },
+                ];
+
+                XLSX.writeFile(wb, `agregadurias_filtradas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            });
+        } catch (err) {
+            alert('Error al exportar: ' + err.message);
+        }
     };
 
     const totalPages = Math.ceil(totalCount / tableParams.pageSize) || 1;
+    const colSpan = hasRole('Editor') ? 8 : 7;
 
     const SortHeader = ({ field, children }) => (
-        <th className="text-left p-3 cursor-pointer hover:bg-bg select-none" onClick={() => handleSort(field)}>
+        <th className="text-left p-3 cursor-pointer hover:bg-bg select-none group/th" onClick={() => handleSort(field)}>
             <div className="flex items-center gap-2">
                 {children}
                 <ArrowUpDown size={14}
-                    className={tableParams.sortBy === field ? 'text-primary' : 'text-gray-400'} />
+                    className={`transition-colors ${tableParams.sortBy === field ? 'text-primary' : 'text-gray-400 group-hover/th:text-gray-500'}`} />
             </div>
         </th>
     );
@@ -55,7 +237,17 @@ export const MasterTable = ({ onEdit }) => {
     return (
         <div className="card">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold mb-4 text-text">Tabla Maestra de Agregadurías</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold text-text">Tabla Maestra de Agregadurías</h2>
+                    <button
+                        onClick={handleExportVisible}
+                        className="btn btn-secondary text-xs gap-1.5"
+                        title="Exportar registros filtrados a Excel"
+                    >
+                        <Download size={14} />
+                        Exportar visibles
+                    </button>
+                </div>
 
                 {/* Filtros y búsqueda */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -99,10 +291,12 @@ export const MasterTable = ({ onEdit }) => {
                 <table className="w-full">
                     <thead>
                         <tr className="border-b-2 border-border">
+                            <th className="w-8 p-3"></th>
                             <SortHeader field="pais">País</SortHeader>
                             <SortHeader field="nombre">Apellido y Nombre</SortHeader>
                             <th className="text-left p-3">Fuerza</th>
                             <SortHeader field="grado">Grado</SortHeader>
+                            <th className="text-left p-3">Decreto</th>
                             <SortHeader field="fincomision">Fin Comisión</SortHeader>
                             <th className="text-left p-3">Días Rest.</th>
                             {hasRole('Editor') && <th className="text-left p-3">Acciones</th>}
@@ -111,62 +305,83 @@ export const MasterTable = ({ onEdit }) => {
                     <tbody>
                         {agregaduras.length === 0 && !loading ? (
                             <tr>
-                                <td colSpan={hasRole('Editor') ? 7 : 6} className="text-center p-8 text-secondary">
+                                <td colSpan={colSpan + 1} className="text-center p-8 text-secondary">
                                     No se encontraron registros
                                 </td>
                             </tr>
                         ) : (
-                            agregaduras.map((item) => (
-                                <tr key={item.id} className="border-b border-border hover:bg-bg transition-colors">
-                                    <td className="p-3">{item.pais}</td>
-                                    <td className="p-3 font-medium">{item.apellidoNombre}</td>
-                                    <td className="p-3">
-                                        <span className={`badge badge-${item.fuerzaCodigo?.toLowerCase()}`}>
-                                            {item.fuerzaCodigo}
-                                        </span>
-                                    </td>
-                                    <td className="p-3">
-                                        <GradeBadge
-                                            grado={item.grado}
-                                            abreviatura={item.gradoAbreviatura}
-                                            codigoOTAN={item.codigoOTAN}
-                                            tipoGrado={item.tipoGrado}
-                                            compact
-                                        />
-                                    </td>
-                                    <td className="p-3">{formatDate(item.finComision)}</td>
-                                    <td className="p-3">
-                                        <span className={getDaysRemainingClass(item.diasRestantes)}>
-                                            {item.diasRestantes != null ? `${item.diasRestantes} días` : 'N/A'}
-                                        </span>
-                                    </td>
-                                    {hasRole('Editor') && (
-                                        <td className="p-3">
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => onEdit(item)}
-                                                    className="text-primary hover:text-primary-dark p-1"
-                                                    title="Editar"
-                                                >
-                                                    <Edit2 size={18} />
-                                                </button>
-                                                {hasRole('Admin') && (
-                                                    <button
-                                                        onClick={() => handleDelete(item.id, item.apellidoNombre)}
-                                                        className="text-red-600 hover:text-red-800 p-1"
-                                                        title="Eliminar"
-                                                        disabled={deleteLoading === item.id}
-                                                    >
-                                                        {deleteLoading === item.id
-                                                            ? <Loader2 size={18} className="animate-spin" />
-                                                            : <Trash2 size={18} />}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))
+                            agregaduras.map((item) => {
+                                const isExpanded = expandedRow === item.id;
+                                return (
+                                    <React.Fragment key={item.id}>
+                                        <tr
+                                            className={`border-b border-border hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50 dark:bg-gray-800/50' : ''}`}
+                                            onClick={() => setExpandedRow(isExpanded ? null : item.id)}
+                                        >
+                                            <td className="p-3 text-center">
+                                                {isExpanded
+                                                    ? <ChevronUp size={14} className="text-primary mx-auto" />
+                                                    : <ChevronDown size={14} className="text-gray-400 mx-auto" />
+                                                }
+                                            </td>
+                                            <td className="p-3">{item.pais}</td>
+                                            <td className="p-3 font-medium">{item.apellidoNombre}</td>
+                                            <td className="p-3">
+                                                <span className={`badge badge-${item.fuerzaCodigo?.toLowerCase()}`}>
+                                                    {item.fuerzaCodigo}
+                                                </span>
+                                            </td>
+                                            <td className="p-3">
+                                                <GradeBadge
+                                                    grado={item.grado}
+                                                    abreviatura={item.gradoAbreviatura}
+                                                    codigoOTAN={item.codigoOTAN}
+                                                    tipoGrado={item.tipoGrado}
+                                                    compact
+                                                />
+                                            </td>
+                                            <td className="p-3">
+                                                <DecreeStatusBadge
+                                                    nroDecreto={item.nroDecretoResol}
+                                                    firmaDecreto={item.firmaDecretoResol}
+                                                />
+                                            </td>
+                                            <td className="p-3">{formatDate(item.finComision)}</td>
+                                            <td className="p-3">
+                                                <DaysRemainingBadge days={item.diasRestantes} />
+                                            </td>
+                                            {hasRole('Editor') && (
+                                                <td className="p-3" onClick={e => e.stopPropagation()}>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => onEdit(item)}
+                                                            className="text-primary hover:text-primary-dark p-1"
+                                                            title="Editar"
+                                                        >
+                                                            <Edit2 size={18} />
+                                                        </button>
+                                                        {hasRole('Admin') && (
+                                                            <button
+                                                                onClick={() => handleDelete(item.id, item.apellidoNombre)}
+                                                                className="text-red-600 hover:text-red-800 p-1"
+                                                                title="Eliminar"
+                                                                disabled={deleteLoading === item.id}
+                                                            >
+                                                                {deleteLoading === item.id
+                                                                    ? <Loader2 size={18} className="animate-spin" />
+                                                                    : <Trash2 size={18} />}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                        {isExpanded && (
+                                            <DetailRow item={item} colSpan={colSpan + 1} />
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
@@ -186,7 +401,6 @@ export const MasterTable = ({ onEdit }) => {
                         >
                             <ChevronLeft size={18} />
                         </button>
-                        {/* Page numbers */}
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                             const start = Math.max(1, Math.min(tableParams.page - 2, totalPages - 4));
                             const pg = start + i;

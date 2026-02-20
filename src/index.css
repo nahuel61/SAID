@@ -208,3 +208,45 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
 }
+
+@keyframes kpiSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes expandRow {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+
+  to {
+    opacity: 1;
+    max-height: 300px;
+  }
+}
+
+.animate-expand {
+  animation: expandRow 0.3s ease-out forwards;
+  overflow: hidden;
+}
+
+/* Animated arc dash */
+@keyframes arcFlow {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.arc-animated {
+  stroke-dasharray: 8 4;
+  stroke-dashoffset: 24;
+  animation: arcFlow 2s linear infinite;
+}

@@ -7,14 +7,15 @@ import {
     Line
 } from 'react-simple-maps';
 import { useData } from '../../context/DataContext';
-import { groupByCountry, matchGeoToCountry } from '../../utils/mapHelpers';
+import { groupByCountry, matchGeoToCountry, getCountryRegion, getHeatColor, REGION_CONFIG } from '../../utils/mapHelpers';
+import { Flame, Globe } from 'lucide-react';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 const FORCE_COLORS = {
-    EA: '#6b7f3e',   // Verde oliva
-    ARA: '#002395',  // Azul francia
-    FAA: '#87CEEB'   // Celeste
+    EA: '#6b7f3e',
+    ARA: '#002395',
+    FAA: '#87CEEB'
 };
 
 const BUENOS_AIRES = [-58.4, -34.6];
@@ -28,8 +29,7 @@ const getPinColor = (countryData) => {
     return FORCE_COLORS.FAA;
 };
 
-const MapChart = memo(({ deploymentsByCountry, hoveredCountry, setHoveredCountry }) => {
-    // Set of country names that have deployments
+const MapChart = memo(({ deploymentsByCountry, hoveredCountry, setHoveredCountry, heatMode, regionConfig }) => {
     const countriesWithPresence = useMemo(() => {
         const set = new Set();
         deploymentsByCountry.forEach(d => {
@@ -38,12 +38,36 @@ const MapChart = memo(({ deploymentsByCountry, hoveredCountry, setHoveredCountry
         return set;
     }, [deploymentsByCountry]);
 
+    // Build heat map: country name → personnel count
+    const heatMap = useMemo(() => {
+        const map = {};
+        let max = 0;
+        deploymentsByCountry.forEach(d => {
+            map[d.country.toUpperCase().trim()] = d.total;
+            if (d.total > max) max = d.total;
+        });
+        return { map, max };
+    }, [deploymentsByCountry]);
+
+    const getCountryFill = (geoName, isActive) => {
+        if (!heatMode) {
+            return isActive ? '#1e40af' : '#1e293b';
+        }
+        // Heat mode: use heatColor for active, dim for inactive
+        if (!isActive) return '#111827';
+        const upper = geoName?.toUpperCase().trim();
+        // Try to find the count for this geo
+        const count = heatMap.map[upper] || 0;
+        if (count > 0) return getHeatColor(count, heatMap.max);
+        return '#111827';
+    };
+
     return (
         <ComposableMap
             projectionConfig={{
-                rotate: [-10, 0, 0],
-                center: [0, 15],
-                scale: 100
+                rotate: regionConfig.rotate,
+                center: regionConfig.center,
+                scale: regionConfig.scale
             }}
             width={800}
             height={250}
@@ -59,13 +83,15 @@ const MapChart = memo(({ deploymentsByCountry, hoveredCountry, setHoveredCountry
                             <Geography
                                 key={geo.rsmKey}
                                 geography={geo}
-                                fill={isActive ? '#1e40af' : '#1e293b'}
-                                stroke="#334155"
+                                fill={getCountryFill(name, isActive)}
+                                stroke={heatMode ? '#1f293980' : '#334155'}
                                 strokeWidth={0.5}
                                 style={{
-                                    default: { outline: 'none' },
+                                    default: { outline: 'none', transition: 'fill 0.5s ease' },
                                     hover: {
-                                        fill: isActive ? '#2563eb' : '#293548',
+                                        fill: isActive
+                                            ? (heatMode ? '#60a5fa' : '#2563eb')
+                                            : (heatMode ? '#1e293b' : '#293548'),
                                         outline: 'none',
                                     },
                                     pressed: { outline: 'none' }
@@ -82,9 +108,10 @@ const MapChart = memo(({ deploymentsByCountry, hoveredCountry, setHoveredCountry
                     key={`arc-${i}`}
                     from={BUENOS_AIRES}
                     to={d.coordinates}
-                    stroke={`${getPinColor(d)}30`}
-                    strokeWidth={1}
+                    stroke={`${getPinColor(d)}50`}
+                    strokeWidth={1.2}
                     strokeLinecap="round"
+                    className="arc-animated"
                 />
             ))}
 
@@ -160,15 +187,66 @@ const MapChart = memo(({ deploymentsByCountry, hoveredCountry, setHoveredCountry
     );
 });
 
+// Region filter button
+const RegionButton = ({ regionKey, label, active, onClick, count }) => (
+    <button
+        onClick={() => onClick(regionKey)}
+        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${active
+            ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+            : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700/60 hover:text-gray-300'
+            }`}
+    >
+        {label}
+        {count > 0 && (
+            <span className={`ml-1 text-[9px] ${active ? 'text-blue-200' : 'text-gray-500'}`}>
+                ({count})
+            </span>
+        )}
+    </button>
+);
+
 export const WorldMap = () => {
     const { allAgregaduras } = useData();
     const [hoveredCountry, setHoveredCountry] = useState(null);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [activeRegion, setActiveRegion] = useState('all');
+    const [heatMode, setHeatMode] = useState(false);
     const containerRef = React.useRef(null);
 
-    const deploymentsByCountry = useMemo(() => {
+    const allDeployments = useMemo(() => {
         return groupByCountry(allAgregaduras);
     }, [allAgregaduras]);
+
+    // Filter deployments by active region
+    const deploymentsByCountry = useMemo(() => {
+        if (activeRegion === 'all') return allDeployments;
+        const regionCountries = REGION_CONFIG[activeRegion]?.countries || [];
+        return allDeployments.filter(d => {
+            const upper = d.country.toUpperCase().trim();
+            return regionCountries.some(c => upper.includes(c) || c.includes(upper));
+        });
+    }, [allDeployments, activeRegion]);
+
+    // Region stats
+    const regionStats = useMemo(() => {
+        const stats = {};
+        Object.keys(REGION_CONFIG).forEach(key => {
+            if (key === 'all') {
+                stats[key] = allDeployments.reduce((sum, d) => sum + d.total, 0);
+                return;
+            }
+            const countries = REGION_CONFIG[key].countries || [];
+            stats[key] = allDeployments
+                .filter(d => countries.some(c => {
+                    const upper = d.country.toUpperCase().trim();
+                    return upper.includes(c) || c.includes(upper);
+                }))
+                .reduce((sum, d) => sum + d.total, 0);
+        });
+        return stats;
+    }, [allDeployments]);
+
+    const regionConfig = REGION_CONFIG[activeRegion] || REGION_CONFIG.all;
 
     const handleMouseMove = (e) => {
         if (containerRef.current) {
@@ -182,11 +260,37 @@ export const WorldMap = () => {
 
     return (
         <div className="bg-white dark:bg-card-dark rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Despliegue Global</h3>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span className="material-icons text-sm">public</span>
-                    <span>{deploymentsByCountry.length} países con presencia</span>
+            <div className="p-4 sm:p-5 border-b border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Despliegue Global</h3>
+                    <span className="text-xs text-gray-500">
+                        {deploymentsByCountry.length} países · {deploymentsByCountry.reduce((s, d) => s + d.total, 0)} personal
+                    </span>
+                </div>
+
+                {/* Region filters + Heat toggle */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {Object.entries(REGION_CONFIG).map(([key, config]) => (
+                        <RegionButton
+                            key={key}
+                            regionKey={key}
+                            label={config.label}
+                            active={activeRegion === key}
+                            onClick={setActiveRegion}
+                            count={regionStats[key] || 0}
+                        />
+                    ))}
+                    <div className="w-px h-5 bg-gray-700 mx-1" />
+                    <button
+                        onClick={() => setHeatMode(!heatMode)}
+                        className={`p-1.5 rounded-lg transition-all ${heatMode
+                            ? 'bg-orange-600 text-white shadow-sm shadow-orange-500/30'
+                            : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700/60 hover:text-gray-300'
+                            }`}
+                        title={heatMode ? 'Desactivar modo calor' : 'Activar modo calor'}
+                    >
+                        <Flame size={14} />
+                    </button>
                 </div>
             </div>
 
@@ -194,25 +298,31 @@ export const WorldMap = () => {
                 ref={containerRef}
                 className="relative overflow-hidden"
                 style={{
-                    background: 'radial-gradient(ellipse at 50% 50%, #0f1b2d 0%, #080e19 100%)',
+                    background: heatMode
+                        ? 'radial-gradient(ellipse at 50% 50%, #0c0f1a 0%, #050709 100%)'
+                        : 'radial-gradient(ellipse at 50% 50%, #0f1b2d 0%, #080e19 100%)',
                     minHeight: '200px'
                 }}
                 onMouseMove={handleMouseMove}
             >
                 {/* Dot grid overlay */}
-                <div
-                    className="absolute inset-0 opacity-[0.04] pointer-events-none"
-                    style={{
-                        backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)',
-                        backgroundSize: '18px 18px'
-                    }}
-                />
+                {!heatMode && (
+                    <div
+                        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+                        style={{
+                            backgroundImage: 'radial-gradient(circle, #3b82f6 1px, transparent 1px)',
+                            backgroundSize: '18px 18px'
+                        }}
+                    />
+                )}
 
                 {/* Map */}
                 <MapChart
                     deploymentsByCountry={deploymentsByCountry}
                     hoveredCountry={hoveredCountry}
                     setHoveredCountry={setHoveredCountry}
+                    heatMode={heatMode}
+                    regionConfig={regionConfig}
                 />
 
                 {/* Hover tooltip */}
@@ -261,7 +371,6 @@ export const WorldMap = () => {
                                 </div>
                             )}
                         </div>
-                        {/* Personnel list */}
                         {hoveredCountry.items && hoveredCountry.items.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-gray-700/50 space-y-1">
                                 {hoveredCountry.items.slice(0, 5).map((p, i) => (
@@ -281,17 +390,33 @@ export const WorldMap = () => {
 
                 {/* Legend */}
                 <div className="absolute bottom-3 left-3 bg-gray-900/80 backdrop-blur-sm p-3 rounded-xl border border-gray-700/50 text-xs text-white z-20">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ background: FORCE_COLORS.EA }} /> EA
+                    {heatMode ? (
+                        <div className="flex items-center gap-3">
+                            <span className="text-gray-400">Intensidad:</span>
+                            <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <div
+                                        key={i}
+                                        className="w-4 h-3 rounded-sm"
+                                        style={{ backgroundColor: getHeatColor(i, 5) }}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-gray-500">Bajo → Alto</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ background: FORCE_COLORS.ARA }} /> ARA
+                    ) : (
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: FORCE_COLORS.EA }} /> EA
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: FORCE_COLORS.ARA }} /> ARA
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: FORCE_COLORS.FAA }} /> FAA
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ background: FORCE_COLORS.FAA }} /> FAA
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Origin badge */}
@@ -304,9 +429,9 @@ export const WorldMap = () => {
                 {deploymentsByCountry.length === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
                         <div className="text-center text-gray-500">
-                            <span className="material-icons text-4xl mb-2 opacity-50">public_off</span>
-                            <p className="text-sm">No hay agregadurías desplegadas</p>
-                            <p className="text-xs mt-1">Agregá registros para ver el mapa</p>
+                            <Globe className="mx-auto mb-2 opacity-50" size={36} />
+                            <p className="text-sm">No hay agregadurías en esta región</p>
+                            <p className="text-xs mt-1">Seleccioná otra región o "Todas"</p>
                         </div>
                     </div>
                 )}

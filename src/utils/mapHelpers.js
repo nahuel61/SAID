@@ -343,3 +343,103 @@ export const groupByCountry = (agregaduras) => {
 
     return Object.values(grouped).filter(g => g.coordinates !== null);
 };
+
+// ===== REGION CONFIG =====
+
+export const REGION_CONFIG = {
+    all: {
+        label: 'Todas',
+        center: [0, 15],
+        scale: 100,
+        rotate: [-10, 0, 0],
+    },
+    america: {
+        label: 'América',
+        center: [-75, 0],
+        scale: 180,
+        rotate: [75, 0, 0],
+        countries: [
+            'ESTADOS UNIDOS', 'USA', 'WASHINGTON', 'CANADA', 'CANADÁ', 'MEXICO', 'MÉXICO',
+            'BRASIL', 'BRAZIL', 'ARGENTINA', 'CHILE', 'PERU', 'PERÚ', 'BOLIVIA', 'COLOMBIA',
+            'VENEZUELA', 'URUGUAY', 'PARAGUAY', 'ECUADOR', 'PANAMA', 'PANAMÁ', 'COSTA RICA',
+            'GUATEMALA', 'CUBA', 'REPUBLICA DOMINICANA', 'REPÚBLICA DOMINICANA', 'HONDURAS',
+            'EL SALVADOR', 'NICARAGUA', 'TRINIDAD Y TOBAGO', 'JAMAICA',
+        ],
+    },
+    europe: {
+        label: 'Europa',
+        center: [15, 52],
+        scale: 350,
+        rotate: [-15, 0, 0],
+        countries: [
+            'ESPAÑA', 'SPAIN', 'MADRID', 'FRANCIA', 'FRANCE', 'PARIS', 'ALEMANIA', 'GERMANY',
+            'BERLIN', 'BERLÍN', 'ITALIA', 'ITALY', 'ROMA', 'REINO UNIDO', 'UK', 'INGLATERRA',
+            'LONDRES', 'PORTUGAL', 'RUSIA', 'RUSSIA', 'MOSCU', 'MOSCÚ', 'SUECIA', 'NORUEGA',
+            'SUIZA', 'AUSTRIA', 'BELGICA', 'BÉLGICA', 'HOLANDA', 'PAÍSES BAJOS', 'POLONIA',
+            'GRECIA', 'UCRANIA', 'RUMANIA', 'REPUBLICA CHECA', 'REPÚBLICA CHECA', 'CHEQUIA',
+            'HUNGRIA', 'HUNGRÍA', 'DINAMARCA', 'FINLANDIA', 'IRLANDA', 'CROACIA', 'SERBIA',
+            'BULGARIA', 'ESLOVAQUIA', 'ESLOVENIA', 'LITUANIA', 'LETONIA', 'ESTONIA',
+        ],
+    },
+    asia: {
+        label: 'Asia-Pacífico',
+        center: [105, 25],
+        scale: 200,
+        rotate: [-105, 0, 0],
+        countries: [
+            'CHINA', 'BEIJING', 'JAPON', 'JAPÓN', 'TOKIO', 'INDIA', 'NUEVA DELHI',
+            'COREA DEL SUR', 'SEUL', 'TAILANDIA', 'BANGKOK', 'VIETNAM', 'SINGAPUR',
+            'INDONESIA', 'MALASIA', 'FILIPINAS', 'PAKISTAN', 'TAIWAN',
+            'AUSTRALIA', 'CANBERRA', 'SIDNEY', 'SYDNEY', 'NUEVA ZELANDA', 'NEW ZEALAND',
+        ],
+    },
+    mideast: {
+        label: 'M. Oriente',
+        center: [45, 30],
+        scale: 350,
+        rotate: [-45, 0, 0],
+        countries: [
+            'ISRAEL', 'TURQUIA', 'TURQUÍA', 'ANKARA', 'ARABIA SAUDITA', 'EMIRATOS ARABES',
+            'EMIRATOS ÁRABES', 'DUBAI', 'QATAR', 'KUWAIT', 'IRAN', 'IRÁN', 'LIBANO',
+            'LÍBANO', 'JORDANIA',
+        ],
+    },
+    africa: {
+        label: 'África',
+        center: [20, 5],
+        scale: 220,
+        rotate: [-20, 0, 0],
+        countries: [
+            'SUDAFRICA', 'SUDÁFRICA', 'SOUTH AFRICA', 'PRETORIA', 'EGIPTO', 'EL CAIRO',
+            'MARRUECOS', 'ARGELIA', 'NIGERIA', 'KENIA', 'ETIOPIA', 'ETIOPÍA', 'ANGOLA',
+            'LIBIA', 'MOZAMBIQUE', 'GHANA', 'SENEGAL', 'TUNEZ', 'TÚNEZ',
+        ],
+    },
+};
+
+/**
+ * Returns the region key for a given country name
+ */
+export const getCountryRegion = (countryName) => {
+    if (!countryName) return null;
+    const upper = countryName.toUpperCase().trim();
+    for (const [key, config] of Object.entries(REGION_CONFIG)) {
+        if (key === 'all') continue;
+        if (config.countries?.some(c => upper.includes(c) || c.includes(upper))) {
+            return key;
+        }
+    }
+    return null;
+};
+
+/**
+ * Returns an HSL color on a blue scale based on count/max ratio
+ * Low count → lighter blue, high count → deeper blue
+ */
+export const getHeatColor = (count, max) => {
+    if (!max || !count) return '#1e293b';
+    const ratio = Math.min(count / max, 1);
+    const lightness = Math.round(70 - ratio * 45); // 70% (light) → 25% (dark)
+    const saturation = Math.round(40 + ratio * 50);  // 40% → 90%
+    return `hsl(217, ${saturation}%, ${lightness}%)`;
+};
