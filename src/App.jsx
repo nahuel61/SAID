@@ -19,12 +19,14 @@ import { PersonalView } from './components/Views/PersonalView';
 import { MapaGlobalView } from './components/Views/MapaGlobalView';
 import { InformesView } from './components/Views/InformesView';
 import { ConfigView } from './components/Views/ConfigView';
+import { AnalyticsView } from './components/Views/AnalyticsView';
 
 const viewTitles = {
     dashboard: { title: 'Situación de Agregadurías', subtitle: 'Control de Misiones en el Exterior' },
     personal: { title: 'Personal', subtitle: 'Gestión de misiones exteriores' },
     mapa: { title: 'Mapa Global', subtitle: 'Distribución geográfica' },
     informes: { title: 'Informes', subtitle: 'Estadísticas y reportes' },
+    analytics: { title: 'Analytics', subtitle: 'Métricas y tendencias avanzadas' },
     config: { title: 'Configuración', subtitle: 'Administración del sistema' },
 };
 
@@ -63,6 +65,8 @@ const DashboardApp = () => {
                 return <MapaGlobalView />;
             case 'informes':
                 return <InformesView />;
+            case 'analytics':
+                return <AnalyticsView />;
             case 'config':
                 return <ConfigView />;
             case 'dashboard':

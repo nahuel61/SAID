@@ -12,6 +12,7 @@ export const Sidebar = ({ activeView, onNavigate, isOpen, onClose }) => {
         { id: 'personal', icon: 'people', label: 'Personal', badge: agregaduras.length },
         { id: 'mapa', icon: 'public', label: 'Mapa Global' },
         { id: 'informes', icon: 'analytics', label: 'Informes' },
+        { id: 'analytics', icon: 'insights', label: 'Analytics' },
     ];
 
     const systemItems = [
@@ -29,8 +30,8 @@ export const Sidebar = ({ activeView, onNavigate, isOpen, onClose }) => {
             <button
                 onClick={() => handleNavigate(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg ${isActive
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                     } transition-colors group`}
             >
                 <span className={`material-icons text-xl ${isActive ? '' : 'group-hover:text-primary'} transition-colors`}>
@@ -39,8 +40,8 @@ export const Sidebar = ({ activeView, onNavigate, isOpen, onClose }) => {
                 <span>{item.label}</span>
                 {item.badge > 0 && (
                     <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${isActive
-                            ? 'bg-primary/20 text-primary'
-                            : 'bg-gray-200 dark:bg-gray-700'
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-gray-200 dark:bg-gray-700'
                         }`}>
                         {item.badge}
                     </span>

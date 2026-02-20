@@ -1,9 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Search, ArrowUpDown, Edit2, Trash2, ChevronLeft, ChevronRight,
     Loader2, ChevronDown, ChevronUp, Download, Phone, Mail, MapPin,
-    FileText, AlertCircle, CheckCircle, Clock
+    FileText, AlertCircle, CheckCircle, Clock, SlidersHorizontal, Eye, EyeOff
 } from 'lucide-react';
+
+const ALL_COLUMNS = [
+    { key: 'pais', label: 'País', sortField: 'pais' },
+    { key: 'nombre', label: 'Apellido y Nombre', sortField: 'nombre' },
+    { key: 'fuerza', label: 'Fuerza' },
+    { key: 'grado', label: 'Grado', sortField: 'grado' },
+    { key: 'decreto', label: 'Decreto' },
+    { key: 'finComision', label: 'Fin Comisión', sortField: 'fincomision' },
+    { key: 'diasRestantes', label: 'Días Rest.' },
+];
+
+const DEFAULT_VISIBLE = ALL_COLUMNS.map(c => c.key);
+
+const loadColumnPrefs = () => {
+    try {
+        const saved = localStorage.getItem('table_columns');
+        if (saved) return JSON.parse(saved);
+    } catch { }
+    return DEFAULT_VISIBLE;
+};
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatDate } from '../../utils/dateHelpers';
@@ -168,6 +188,33 @@ export const MasterTable = ({ onEdit }) => {
 
     const [deleteLoading, setDeleteLoading] = useState(null);
     const [expandedRow, setExpandedRow] = useState(null);
+    const [visibleCols, setVisibleCols] = useState(loadColumnPrefs);
+    const [showColMenu, setShowColMenu] = useState(false);
+    const colMenuRef = useRef(null);
+
+    useEffect(() => {
+        localStorage.setItem('table_columns', JSON.stringify(visibleCols));
+    }, [visibleCols]);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (colMenuRef.current && !colMenuRef.current.contains(e.target)) setShowColMenu(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleCol = (key) => {
+        setVisibleCols(prev => {
+            if (prev.includes(key)) {
+                if (prev.length <= 2) return prev; // min 2 columns
+                return prev.filter(k => k !== key);
+            }
+            return [...prev, key];
+        });
+    };
+
+    const isCol = (key) => visibleCols.includes(key);
 
     const handleSort = (field) => {
         const newDir = tableParams.sortBy === field && tableParams.sortDir === 'asc' ? 'desc' : 'asc';
@@ -222,7 +269,8 @@ export const MasterTable = ({ onEdit }) => {
     };
 
     const totalPages = Math.ceil(totalCount / tableParams.pageSize) || 1;
-    const colSpan = hasRole('Editor') ? 8 : 7;
+    const visibleCount = visibleCols.length;
+    const colSpan = visibleCount + 1 + (hasRole('Editor') ? 1 : 0); // +1 for expand column
 
     const SortHeader = ({ field, children }) => (
         <th className="text-left p-3 cursor-pointer hover:bg-bg select-none group/th" onClick={() => handleSort(field)}>
@@ -239,14 +287,55 @@ export const MasterTable = ({ onEdit }) => {
             <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-bold text-text">Tabla Maestra de Agregadurías</h2>
-                    <button
-                        onClick={handleExportVisible}
-                        className="btn btn-secondary text-xs gap-1.5"
-                        title="Exportar registros filtrados a Excel"
-                    >
-                        <Download size={14} />
-                        Exportar visibles
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* Column configuration */}
+                        <div className="relative" ref={colMenuRef}>
+                            <button
+                                onClick={() => setShowColMenu(!showColMenu)}
+                                className="btn btn-secondary text-xs gap-1.5"
+                                title="Configurar columnas visibles"
+                            >
+                                <SlidersHorizontal size={14} />
+                                Columnas
+                            </button>
+                            {showColMenu && (
+                                <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-card-dark rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl z-30 py-2 animate-fade-in">
+                                    <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Columnas visibles</p>
+                                    {ALL_COLUMNS.map(col => (
+                                        <button
+                                            key={col.key}
+                                            onClick={() => toggleCol(col.key)}
+                                            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+                                        >
+                                            {visibleCols.includes(col.key)
+                                                ? <Eye size={14} className="text-primary" />
+                                                : <EyeOff size={14} className="text-gray-400" />
+                                            }
+                                            <span className={visibleCols.includes(col.key) ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>
+                                                {col.label}
+                                            </span>
+                                        </button>
+                                    ))}
+                                    <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1 px-3">
+                                        <button
+                                            onClick={() => setVisibleCols(DEFAULT_VISIBLE)}
+                                            className="text-xs text-primary hover:underline py-1"
+                                        >
+                                            Restablecer todas
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            onClick={handleExportVisible}
+                            className="btn btn-secondary text-xs gap-1.5"
+                            title="Exportar registros filtrados a Excel"
+                        >
+                            <Download size={14} />
+                            Exportar visibles
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filtros y búsqueda */}
@@ -292,13 +381,13 @@ export const MasterTable = ({ onEdit }) => {
                     <thead>
                         <tr className="border-b-2 border-border">
                             <th className="w-8 p-3"></th>
-                            <SortHeader field="pais">País</SortHeader>
-                            <SortHeader field="nombre">Apellido y Nombre</SortHeader>
-                            <th className="text-left p-3">Fuerza</th>
-                            <SortHeader field="grado">Grado</SortHeader>
-                            <th className="text-left p-3">Decreto</th>
-                            <SortHeader field="fincomision">Fin Comisión</SortHeader>
-                            <th className="text-left p-3">Días Rest.</th>
+                            {isCol('pais') && <SortHeader field="pais">País</SortHeader>}
+                            {isCol('nombre') && <SortHeader field="nombre">Apellido y Nombre</SortHeader>}
+                            {isCol('fuerza') && <th className="text-left p-3">Fuerza</th>}
+                            {isCol('grado') && <SortHeader field="grado">Grado</SortHeader>}
+                            {isCol('decreto') && <th className="text-left p-3">Decreto</th>}
+                            {isCol('finComision') && <SortHeader field="fincomision">Fin Comisión</SortHeader>}
+                            {isCol('diasRestantes') && <th className="text-left p-3">Días Rest.</th>}
                             {hasRole('Editor') && <th className="text-left p-3">Acciones</th>}
                         </tr>
                     </thead>
@@ -324,32 +413,40 @@ export const MasterTable = ({ onEdit }) => {
                                                     : <ChevronDown size={14} className="text-gray-400 mx-auto" />
                                                 }
                                             </td>
-                                            <td className="p-3">{item.pais}</td>
-                                            <td className="p-3 font-medium">{item.apellidoNombre}</td>
-                                            <td className="p-3">
-                                                <span className={`badge badge-${item.fuerzaCodigo?.toLowerCase()}`}>
-                                                    {item.fuerzaCodigo}
-                                                </span>
-                                            </td>
-                                            <td className="p-3">
-                                                <GradeBadge
-                                                    grado={item.grado}
-                                                    abreviatura={item.gradoAbreviatura}
-                                                    codigoOTAN={item.codigoOTAN}
-                                                    tipoGrado={item.tipoGrado}
-                                                    compact
-                                                />
-                                            </td>
-                                            <td className="p-3">
-                                                <DecreeStatusBadge
-                                                    nroDecreto={item.nroDecretoResol}
-                                                    firmaDecreto={item.firmaDecretoResol}
-                                                />
-                                            </td>
-                                            <td className="p-3">{formatDate(item.finComision)}</td>
-                                            <td className="p-3">
-                                                <DaysRemainingBadge days={item.diasRestantes} />
-                                            </td>
+                                            {isCol('pais') && <td className="p-3">{item.pais}</td>}
+                                            {isCol('nombre') && <td className="p-3 font-medium">{item.apellidoNombre}</td>}
+                                            {isCol('fuerza') && (
+                                                <td className="p-3">
+                                                    <span className={`badge badge-${item.fuerzaCodigo?.toLowerCase()}`}>
+                                                        {item.fuerzaCodigo}
+                                                    </span>
+                                                </td>
+                                            )}
+                                            {isCol('grado') && (
+                                                <td className="p-3">
+                                                    <GradeBadge
+                                                        grado={item.grado}
+                                                        abreviatura={item.gradoAbreviatura}
+                                                        codigoOTAN={item.codigoOTAN}
+                                                        tipoGrado={item.tipoGrado}
+                                                        compact
+                                                    />
+                                                </td>
+                                            )}
+                                            {isCol('decreto') && (
+                                                <td className="p-3">
+                                                    <DecreeStatusBadge
+                                                        nroDecreto={item.nroDecretoResol}
+                                                        firmaDecreto={item.firmaDecretoResol}
+                                                    />
+                                                </td>
+                                            )}
+                                            {isCol('finComision') && <td className="p-3">{formatDate(item.finComision)}</td>}
+                                            {isCol('diasRestantes') && (
+                                                <td className="p-3">
+                                                    <DaysRemainingBadge days={item.diasRestantes} />
+                                                </td>
+                                            )}
                                             {hasRole('Editor') && (
                                                 <td className="p-3" onClick={e => e.stopPropagation()}>
                                                     <div className="flex gap-2">
