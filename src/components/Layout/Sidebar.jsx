@@ -1,34 +1,37 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { X } from 'lucide-react';
 
-export const Sidebar = ({ activeView, onNavigate, isOpen, onClose }) => {
+const NAV_ITEMS = [
+    { path: '/', icon: 'dashboard', label: 'Dashboard' },
+    { path: '/personal', icon: 'people', label: 'Personal', showBadge: true },
+    { path: '/mapa', icon: 'public', label: 'Mapa Global' },
+    { path: '/informes', icon: 'analytics', label: 'Informes' },
+    { path: '/analytics', icon: 'insights', label: 'Analytics' },
+];
+
+const SYSTEM_ITEMS = [
+    { path: '/config', icon: 'settings', label: 'Configuración' },
+];
+
+export const Sidebar = ({ isOpen, onClose }) => {
     const { agregaduras } = useData();
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
 
-    const navItems = [
-        { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
-        { id: 'personal', icon: 'people', label: 'Personal', badge: agregaduras.length },
-        { id: 'mapa', icon: 'public', label: 'Mapa Global' },
-        { id: 'informes', icon: 'analytics', label: 'Informes' },
-        { id: 'analytics', icon: 'insights', label: 'Analytics' },
-    ];
-
-    const systemItems = [
-        { id: 'config', icon: 'settings', label: 'Configuración' },
-    ];
-
-    const handleNavigate = (id) => {
-        onNavigate(id);
+    const handleNavigate = (path) => {
+        navigate(path);
         if (onClose) onClose(); // close on mobile after navigation
     };
 
     const NavLink = ({ item }) => {
-        const isActive = activeView === item.id;
+        const isActive = location.pathname === item.path;
         return (
             <button
-                onClick={() => handleNavigate(item.id)}
+                onClick={() => handleNavigate(item.path)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg ${isActive
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
@@ -38,12 +41,12 @@ export const Sidebar = ({ activeView, onNavigate, isOpen, onClose }) => {
                     {item.icon}
                 </span>
                 <span>{item.label}</span>
-                {item.badge > 0 && (
+                {item.showBadge && agregaduras.length > 0 && (
                     <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${isActive
                         ? 'bg-primary/20 text-primary'
                         : 'bg-gray-200 dark:bg-gray-700'
                         }`}>
-                        {item.badge}
+                        {agregaduras.length}
                     </span>
                 )}
             </button>
@@ -104,16 +107,16 @@ export const Sidebar = ({ activeView, onNavigate, isOpen, onClose }) => {
                         Principal
                     </p>
 
-                    {navItems.map(item => (
-                        <NavLink key={item.id} item={item} />
+                    {NAV_ITEMS.map(item => (
+                        <NavLink key={item.path} item={item} />
                     ))}
 
                     <div className="pt-6">
                         <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                             Sistema
                         </p>
-                        {systemItems.map(item => (
-                            <NavLink key={item.id} item={item} />
+                        {SYSTEM_ITEMS.map(item => (
+                            <NavLink key={item.path} item={item} />
                         ))}
                     </div>
                 </nav>
@@ -122,7 +125,7 @@ export const Sidebar = ({ activeView, onNavigate, isOpen, onClose }) => {
                 <div className="p-4 border-t border-gray-200 dark:border-gray-800">
                     <div
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors"
-                        onClick={() => handleNavigate('config')}
+                        onClick={() => handleNavigate('/config')}
                     >
                         <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-semibold text-sm">
                             {initials}

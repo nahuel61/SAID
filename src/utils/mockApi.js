@@ -75,6 +75,24 @@ export const agregaduriasApi = {
             items = items.filter(i => i.fuerzaCodigo === params.fuerza || String(i.fuerzaId) === String(params.fuerza));
         }
 
+        // Filter by estado (commission status)
+        if (params.estado) {
+            switch (params.estado) {
+                case 'activas':
+                    items = items.filter(i => i.diasRestantes !== null && i.diasRestantes > 0);
+                    break;
+                case 'proximas':
+                    items = items.filter(i => i.diasRestantes !== null && i.diasRestantes > 0 && i.diasRestantes <= 120);
+                    break;
+                case 'criticas':
+                    items = items.filter(i => i.diasRestantes !== null && i.diasRestantes > 0 && i.diasRestantes <= 30);
+                    break;
+                case 'vencidas':
+                    items = items.filter(i => i.diasRestantes !== null && i.diasRestantes < 0);
+                    break;
+            }
+        }
+
         // Search
         if (params.search) {
             const s = params.search.toLowerCase();

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import { DataProvider } from './context/DataContext';
 import { LoginPage } from './components/Auth/LoginPage';
 import { Sidebar } from './components/Layout/Sidebar';
@@ -12,29 +14,38 @@ import { AlertPanel } from './components/Dashboard/AlertPanel';
 import { MasterFilter } from './components/Layout/MasterFilter';
 import { ErrorBoundary } from './components/UI/ErrorBoundary';
 import { useData } from './context/DataContext';
-import { LogOut, Plus, Bell, Menu } from 'lucide-react';
+import { LogOut, Plus, Bell, Menu, Loader2 } from 'lucide-react';
 
-// View Components
-import { PersonalView } from './components/Views/PersonalView';
-import { MapaGlobalView } from './components/Views/MapaGlobalView';
-import { InformesView } from './components/Views/InformesView';
-import { ConfigView } from './components/Views/ConfigView';
-import { AnalyticsView } from './components/Views/AnalyticsView';
+// Lazy-loaded view components
+const PersonalView = lazy(() => import('./components/Views/PersonalView').then(m => ({ default: m.PersonalView })));
+const MapaGlobalView = lazy(() => import('./components/Views/MapaGlobalView').then(m => ({ default: m.MapaGlobalView })));
+const InformesView = lazy(() => import('./components/Views/InformesView').then(m => ({ default: m.InformesView })));
+const ConfigView = lazy(() => import('./components/Views/ConfigView').then(m => ({ default: m.ConfigView })));
+const AnalyticsView = lazy(() => import('./components/Views/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
 
-const viewTitles = {
-    dashboard: { title: 'Situación de Agregadurías', subtitle: 'Control de Misiones en el Exterior' },
-    personal: { title: 'Personal', subtitle: 'Gestión de misiones exteriores' },
-    mapa: { title: 'Mapa Global', subtitle: 'Distribución geográfica' },
-    informes: { title: 'Informes', subtitle: 'Estadísticas y reportes' },
-    analytics: { title: 'Analytics', subtitle: 'Métricas y tendencias avanzadas' },
-    config: { title: 'Configuración', subtitle: 'Administración del sistema' },
+const ROUTE_META = {
+    '/': { title: 'Situación de Agregadurías', subtitle: 'Control de Misiones en el Exterior', pageTitle: 'Dashboard' },
+    '/personal': { title: 'Personal', subtitle: 'Gestión de misiones exteriores', pageTitle: 'Personal' },
+    '/mapa': { title: 'Mapa Global', subtitle: 'Distribución geográfica', pageTitle: 'Mapa Global' },
+    '/informes': { title: 'Informes', subtitle: 'Estadísticas y reportes', pageTitle: 'Informes' },
+    '/analytics': { title: 'Analytics', subtitle: 'Métricas y tendencias avanzadas', pageTitle: 'Analytics' },
+    '/config': { title: 'Configuración', subtitle: 'Administración del sistema', pageTitle: 'Configuración' },
 };
+
+// View loading fallback
+const ViewSpinner = () => (
+    <div className="flex items-center justify-center py-20">
+        <Loader2 size={28} className="animate-spin text-primary" />
+    </div>
+);
 
 // Inner app component that uses contexts
 const DashboardApp = () => {
     const { user, logout, hasRole } = useAuth();
     const { kpis } = useData();
-    const [activeView, setActiveView] = useState('dashboard');
+    const location = useLocation();
+    const navigate = useNavigate();
+
     const [showForm, setShowForm] = useState(false);
     const [showAlerts, setShowAlerts] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -56,44 +67,24 @@ const DashboardApp = () => {
     };
 
     const alertCount = kpis?.alertas?.filter(a => a.severidad === 'Critica').length || 0;
+    const currentPath = location.pathname;
+    const viewInfo = ROUTE_META[currentPath] || ROUTE_META['/'];
 
-    const renderView = () => {
-        switch (activeView) {
-            case 'personal':
-                return <PersonalView />;
-            case 'mapa':
-                return <MapaGlobalView />;
-            case 'informes':
-                return <InformesView />;
-            case 'analytics':
-                return <AnalyticsView />;
-            case 'config':
-                return <ConfigView />;
-            case 'dashboard':
-            default:
-                return (
-                    <>
-                        <KPICards />
-                        <div className="mb-6 lg:mb-8">
-                            <WorldMap />
-                        </div>
-                        <div className="mb-6 lg:mb-8">
-                            <ExpirationChart />
-                        </div>
-                        <MasterTable onEdit={handleEdit} />
-                    </>
-                );
-        }
-    };
+    // Dynamic document title
+    React.useEffect(() => {
+        document.title = `${viewInfo.pageTitle} — PIGC`;
+    }, [viewInfo.pageTitle]);
 
-    const viewInfo = viewTitles[activeView] || viewTitles.dashboard;
+    // Map route IDs for views that need it (dashboard & personal show filters)
+    const activeViewId = currentPath === '/' ? 'dashboard' :
+        currentPath.replace('/', '');
+
+    const showFilters = activeViewId === 'dashboard' || activeViewId === 'personal';
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark flex overflow-hidden font-display">
             {/* Sidebar */}
             <Sidebar
-                activeView={activeView}
-                onNavigate={setActiveView}
                 isOpen={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
             />
@@ -128,7 +119,7 @@ const DashboardApp = () => {
                     </div>
                     <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
                         {/* Master Filter — show on dashboard & personal, hidden on small screens */}
-                        {(activeView === 'dashboard' || activeView === 'personal') && (
+                        {showFilters && (
                             <div className="hidden md:block">
                                 <MasterFilter />
                             </div>
@@ -149,7 +140,7 @@ const DashboardApp = () => {
                         )}
 
                         {/* Add new — show on dashboard view */}
-                        {activeView === 'dashboard' && hasRole('Editor') && (
+                        {activeViewId === 'dashboard' && hasRole('Editor') && (
                             <button
                                 onClick={handleAddNew}
                                 className="flex items-center gap-2 bg-primary hover:bg-blue-700 text-white px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-primary/30"
@@ -170,15 +161,36 @@ const DashboardApp = () => {
                 </header>
 
                 {/* Mobile filter bar */}
-                {(activeView === 'dashboard' || activeView === 'personal') && (
+                {showFilters && (
                     <div className="md:hidden mb-4">
                         <MasterFilter />
                     </div>
                 )}
 
-                {/* View Content wrapped in ErrorBoundary */}
-                <ErrorBoundary key={activeView}>
-                    {renderView()}
+                {/* View Content wrapped in ErrorBoundary + Suspense */}
+                <ErrorBoundary key={currentPath}>
+                    <Suspense fallback={<ViewSpinner />}>
+                        <Routes>
+                            <Route path="/" element={
+                                <>
+                                    <KPICards />
+                                    <div className="mb-6 lg:mb-8">
+                                        <WorldMap />
+                                    </div>
+                                    <div className="mb-6 lg:mb-8">
+                                        <ExpirationChart />
+                                    </div>
+                                    <MasterTable onEdit={handleEdit} />
+                                </>
+                            } />
+                            <Route path="/personal" element={<PersonalView />} />
+                            <Route path="/mapa" element={<MapaGlobalView />} />
+                            <Route path="/informes" element={<InformesView />} />
+                            <Route path="/analytics" element={<AnalyticsView />} />
+                            <Route path="/config" element={<ConfigView />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </Suspense>
                 </ErrorBoundary>
             </main>
 
@@ -197,11 +209,13 @@ const DashboardApp = () => {
 // Root App with providers and auth guard
 function App() {
     return (
-        <AuthProvider>
-            <ErrorBoundary>
-                <AppRouter />
-            </ErrorBoundary>
-        </AuthProvider>
+        <ToastProvider>
+            <AuthProvider>
+                <ErrorBoundary>
+                    <AppRouter />
+                </ErrorBoundary>
+            </AuthProvider>
+        </ToastProvider>
     );
 }
 

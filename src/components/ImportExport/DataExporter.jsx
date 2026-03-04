@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Download, FileSpreadsheet, FileText, Loader2, ChevronDown } from 'lucide-react';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { exportApi } from '../../utils/api';
 
 export const DataExporter = () => {
     const { allAgregaduras, masterFilter } = useData();
+    const toast = useToast();
     const [loading, setLoading] = useState(null); // 'csv' | 'excel' | 'pdf' | null
     const [open, setOpen] = useState(false);
 
@@ -22,12 +24,42 @@ export const DataExporter = () => {
         }));
     };
 
+    // Client-side CSV fallback when backend export fails
+    const exportCSVLocally = () => {
+        const data = getExportData();
+        if (data.length === 0) {
+            toast.warning('No hay datos para exportar');
+            return;
+        }
+        const headers = Object.keys(data[0]);
+        const csvRows = [headers.join(',')];
+        data.forEach(row => {
+            csvRows.push(headers.map(h => `"${String(row[h]).replace(/"/g, '""')}"`).join(','));
+        });
+        const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `PIGC_Export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     const handleCSV = async () => {
         setLoading('csv');
         try {
             await exportApi.csv(masterFilter || undefined);
+            toast.success('CSV exportado exitosamente');
         } catch (err) {
-            alert('Error al exportar CSV: ' + err.message);
+            console.warn('Backend CSV export failed, using client-side fallback:', err.message);
+            try {
+                exportCSVLocally();
+                toast.info('CSV generado localmente (backend no disponible)');
+            } catch (fallbackErr) {
+                toast.error('Error al exportar CSV: ' + fallbackErr.message);
+            }
         } finally {
             setLoading(null);
             setOpen(false);
@@ -50,8 +82,9 @@ export const DataExporter = () => {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Agregadurías');
             XLSX.writeFile(wb, `PIGC_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+            toast.success('Excel exportado exitosamente');
         } catch (err) {
-            alert('Error al exportar Excel: ' + err.message);
+            toast.error('Error al exportar Excel: ' + err.message);
         } finally {
             setLoading(null);
             setOpen(false);
@@ -127,8 +160,9 @@ export const DataExporter = () => {
             });
 
             doc.save(`PIGC_Export_${new Date().toISOString().split('T')[0]}.pdf`);
+            toast.success('PDF exportado exitosamente');
         } catch (err) {
-            alert('Error al exportar PDF: ' + err.message);
+            toast.error('Error al exportar PDF: ' + err.message);
         } finally {
             setLoading(null);
             setOpen(false);

@@ -81,6 +81,7 @@ if (IS_DEMO) {
             const query = new URLSearchParams();
             if (params.fuerza) query.set('fuerza', params.fuerza);
             if (params.tipo) query.set('tipo', params.tipo);
+            if (params.estado) query.set('estado', params.estado);
             if (params.search) query.set('search', params.search);
             if (params.sortBy) query.set('sortBy', params.sortBy);
             if (params.sortDir) query.set('sortDir', params.sortDir);

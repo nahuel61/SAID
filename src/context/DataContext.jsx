@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 import { agregaduriasApi, kpisApi, lookupsApi, importApi } from '../utils/api';
 
 const DataContext = createContext();
@@ -7,10 +8,12 @@ export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
     const { isAuthenticated } = useAuth();
+    const toast = useToast();
 
     // UI State
     const [darkMode, setDarkMode] = useState(false);
     const [masterFilter, setMasterFilter] = useState(''); // '', 'Oficial', 'Suboficial'
+    const [estadoFilter, setEstadoFilter] = useState(''); // '', 'activas', 'proximas', 'criticas', 'vencidas'
 
     // Data State
     const [agregaduras, setAgregaduras] = useState([]);
@@ -66,7 +69,8 @@ export const DataProvider = ({ children }) => {
         try {
             const params = {
                 ...tableParams,
-                tipo: masterFilter || undefined
+                tipo: masterFilter || undefined,
+                estado: estadoFilter || undefined
             };
             const result = await agregaduriasApi.list(params);
             setAgregaduras(result.items || []);
@@ -78,21 +82,22 @@ export const DataProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [tableParams, masterFilter]);
+    }, [tableParams, masterFilter, estadoFilter]);
 
     // ===== FETCH ALL AGREGADURIAS (unpaginated, for map/globe/views) =====
     const fetchAllAgregaduras = useCallback(async () => {
         try {
             const params = {
                 pageSize: 1000, // Fetch all
-                tipo: masterFilter || undefined
+                tipo: masterFilter || undefined,
+                estado: estadoFilter || undefined
             };
             const result = await agregaduriasApi.list(params);
             setAllAgregaduras(result.items || []);
         } catch (err) {
             console.error('Error fetching all agregadurias:', err);
         }
-    }, [masterFilter]);
+    }, [masterFilter, estadoFilter]);
 
     // ===== FETCH KPIs =====
     const fetchKpis = useCallback(async () => {
@@ -103,6 +108,11 @@ export const DataProvider = ({ children }) => {
             console.error('Error fetching KPIs:', err);
         }
     }, [masterFilter]);
+
+    // ===== UNIFIED REFRESH (parallel) =====
+    const refreshData = useCallback(() => {
+        return Promise.all([fetchAgregaduras(), fetchAllAgregaduras(), fetchKpis()]);
+    }, [fetchAgregaduras, fetchAllAgregaduras, fetchKpis]);
 
     // ===== EFFECTS: Auto-fetch when authenticated =====
     useEffect(() => {
@@ -129,35 +139,54 @@ export const DataProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchKpis]);
 
-    // ===== CRUD OPERATIONS =====
+    // ===== CRUD OPERATIONS (with error handling + toasts) =====
     const addAgregadura = async (data) => {
-        await agregaduriasApi.create(data);
-        await fetchAgregaduras();
-        await fetchAllAgregaduras();
-        await fetchKpis();
+        try {
+            await agregaduriasApi.create(data);
+            await refreshData();
+            toast.success('Registro creado exitosamente');
+            return { success: true };
+        } catch (err) {
+            toast.error(err.message || 'Error al crear el registro');
+            throw err;
+        }
     };
 
     const updateAgregadura = async (id, data) => {
-        await agregaduriasApi.update(id, data);
-        await fetchAgregaduras();
-        await fetchAllAgregaduras();
-        await fetchKpis();
+        try {
+            await agregaduriasApi.update(id, data);
+            await refreshData();
+            toast.success('Registro actualizado exitosamente');
+            return { success: true };
+        } catch (err) {
+            toast.error(err.message || 'Error al actualizar el registro');
+            throw err;
+        }
     };
 
     const deleteAgregadura = async (id) => {
-        await agregaduriasApi.delete(id);
-        await fetchAgregaduras();
-        await fetchAllAgregaduras();
-        await fetchKpis();
+        try {
+            await agregaduriasApi.delete(id);
+            await refreshData();
+            toast.success('Registro eliminado');
+            return { success: true };
+        } catch (err) {
+            toast.error(err.message || 'Error al eliminar el registro');
+            throw err;
+        }
     };
 
     // ===== IMPORT =====
     const importFromCSV = async (rows, mode = 'add') => {
-        const result = await importApi.csv(rows, mode);
-        await fetchAgregaduras();
-        await fetchAllAgregaduras();
-        await fetchKpis();
-        return result;
+        try {
+            const result = await importApi.csv(rows, mode);
+            await refreshData();
+            toast.success(`Importación completada: ${result.imported || rows.length} registros procesados`);
+            return result;
+        } catch (err) {
+            toast.error(err.message || 'Error al importar datos');
+            throw err;
+        }
     };
 
     // ===== TABLE CONTROLS =====
@@ -186,6 +215,9 @@ export const DataProvider = ({ children }) => {
         // Master filter
         masterFilter,
         setMasterFilter,
+        // Estado filter
+        estadoFilter,
+        setEstadoFilter,
         // Theme
         darkMode,
         toggleDarkMode,
@@ -196,7 +228,7 @@ export const DataProvider = ({ children }) => {
         // Import
         importFromCSV,
         // Refresh
-        refreshData: () => { fetchAgregaduras(); fetchAllAgregaduras(); fetchKpis(); }
+        refreshData
     };
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
