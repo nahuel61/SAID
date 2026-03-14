@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { CSVImporter } from '../ImportExport/CSVImporter';
 import { DataExporter } from '../ImportExport/DataExporter';
 import { UserForm } from '../Forms/UserForm';
@@ -12,15 +13,26 @@ import {
 export const ConfigView = () => {
     const { user, hasRole } = useAuth();
     const { darkMode, toggleDarkMode, clearAllData, agregaduras } = useData();
+    const toast = useToast();
     const [showImporter, setShowImporter] = useState(false);
     const [showUserForm, setShowUserForm] = useState(false);
+    const [confirmClear, setConfirmClear] = useState(false);
+    const [clearing, setClearing] = useState(false);
 
-    const handleClearData = () => {
-        if (window.confirm('¿Está seguro de eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
-            if (window.confirm('Confirmación final: Se eliminarán todos los registros permanentemente.')) {
-                clearAllData();
-                alert('Todos los datos han sido eliminados');
-            }
+    const handleClearData = async () => {
+        if (!confirmClear) {
+            setConfirmClear(true);
+            setTimeout(() => setConfirmClear(false), 5000); // auto-cancel after 5s
+            return;
+        }
+        setClearing(true);
+        try {
+            await clearAllData();
+            setConfirmClear(false);
+        } catch (err) {
+            toast.error('Error al eliminar los datos');
+        } finally {
+            setClearing(false);
         }
     };
 
@@ -164,13 +176,20 @@ export const ConfigView = () => {
                         <div className="space-y-3">
                             <button
                                 onClick={handleClearData}
-                                className="w-full flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-left"
+                                disabled={clearing}
+                                className={`w-full flex items-center gap-3 p-4 rounded-lg border transition-colors text-left ${
+                                    confirmClear
+                                        ? 'bg-red-100 dark:bg-red-900/40 border-red-400 dark:border-red-600 animate-pulse'
+                                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'
+                                }`}
                             >
-                                <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+                                <Trash2 size={20} className="text-red-600 dark:text-red-400 flex-shrink-0" />
                                 <div>
-                                    <p className="font-medium text-red-700 dark:text-red-300">Eliminar Todos los Datos</p>
+                                    <p className="font-medium text-red-700 dark:text-red-300">
+                                        {confirmClear ? '⚠️ Clic de nuevo para confirmar eliminación' : 'Eliminar Todos los Datos'}
+                                    </p>
                                     <p className="text-xs text-red-500 dark:text-red-400">
-                                        Esta acción no se puede deshacer
+                                        {confirmClear ? 'Se cancelará automáticamente en 5 segundos' : 'Esta acción no se puede deshacer'}
                                     </p>
                                 </div>
                             </button>

@@ -176,6 +176,19 @@ export const DataProvider = ({ children }) => {
         }
     };
 
+    // ===== CLEAR ALL DATA =====
+    const clearAllData = async () => {
+        try {
+            // In demo mode this clears via the mock, in real mode hits backend
+            await importApi.csv([], 'replace');
+            await refreshData();
+            toast.success('Todos los datos han sido eliminados');
+        } catch (err) {
+            toast.error('Error al limpiar los datos: ' + err.message);
+            throw err;
+        }
+    };
+
     // ===== IMPORT =====
     const importFromCSV = async (rows, mode = 'add') => {
         try {
@@ -227,6 +240,8 @@ export const DataProvider = ({ children }) => {
         deleteAgregadura,
         // Import
         importFromCSV,
+        // Clear all
+        clearAllData,
         // Refresh
         refreshData
     };
